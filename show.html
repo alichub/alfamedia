@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+  <body>
+    <script type="text/javascript" src="js/pubnub.4.21.2.js"></script>
+
+    <script>
+      var map; // Declarar map en el ámbito global
+      var marker; // Declarar marker en el ámbito global
+	  const markers = {};
+	  const infoWindows = {};
+	  
+
+
+      function initMap() {
+        map = new google.maps.Map(
+          document.getElementById("map-canvas"),
+          {
+            zoom: 8,
+            center: { lat: 25.76607216088939, lng: -80.22475379072088 },
+          }
+        );
+        marker = new google.maps.Marker({
+          position: { lat: 25.76607216088939, lng: -80.22475379072088 },
+          map: map,
+        });
+      }
+
+      window.initMap = initMap;
+
+      //const pnChannel = "map2-channel";
+	  const pnChannel = Array.from({ length: 10 }, (_, i) => `P-${i + 1}`);
+      const pubnub = new PubNub({
+        publishKey: 'pub-c-363c7b29-897f-49e9-9c93-b45b7d129194',
+        subscribeKey: 'sub-c-4c10632c-701e-11e8-9683-aecdde7ceb31',
+        logVerbosity: true,
+      });
+
+      pubnub.subscribe({ channels: [pnChannel] });
+
+      pubnub.addListener({
+        message: function (m) {
+          var channelName = m.channel;
+          var channelGroup = m.subscription;
+          var pubTT = m.timetoken;
+          var msg = m.message;
+          var publisher = m.publisher;
+          redraw(m);
+        },
+        presence: function (p) {},
+        signal: function (s) {},
+        objects: function (objectEvent) {},
+        messageAction: function (ma) {},
+        file: function (event) {},
+        status: function (s) {},
+      });
+
+      const redraw = function(payload) {
+  const lat = payload.message.lat;
+  const lng = payload.message.lng;
+  const channelName = payload.channel;
+
+  // Si no hay un marcador para este canal, crearlo
+  if (!markers[channelName]) {
+    const marker = new google.maps.Marker({
+      position: { lat: lat, lng: lng },
+      map: map,
+      title: channelName // Agregar el nombre del canal como título del marcador
+    });
+    
+    const infoWindow = new google.maps.InfoWindow({
+      content: `<div><strong>${channelName}</strong></div>`
+    });
+    
+    marker.addListener('click', function() {
+      // Cerrar todas las infoWindows abiertas
+      for (let key in infoWindows) {
+        infoWindows[key].close();
+      }
+      // Abrir la infoWindow del marcador actual
+      infoWindow.open(map, marker);
+    });
+
+    markers[channelName] = marker;
+    infoWindows[channelName] = infoWindow;
+  } else {
+    // Actualizar la posición del marcador existente
+    markers[channelName].setPosition({ lat: lat, lng: lng });
+  }
+
+  // Centrar el mapa en la nueva posición
+  map.setCenter({ lat: lat, lng: lng });
+};
+
+      <!-- setInterval(function () { -->
+        <!-- pubnub.publish({ -->
+          <!-- channel: pnChannel, -->
+          <!-- message: circlePoint(new Date().getTime() / 1000), -->
+        <!-- }); -->
+      <!-- }, 500); -->
+    </script>
+
+    <script async
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDGn-npfsFtFXUsTzSiGHtE0ccQCESwYYU&loading=async&region=US&language=en&callback=initMap">
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" />
+
+    <div class="container">
+      <h1>Alfamedia pantallas</h1>
+      <div id="map-canvas" style="width:800px;height:600px"></div>
+    </div>
+  </body>
+</html>
